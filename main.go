@@ -3,10 +3,12 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/golang-jwt/jwt/v4"
 	"github.com/gorilla/mux"
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 )
 
 type User struct {
@@ -57,6 +59,26 @@ var profiles []Profile
 var comments []Comment
 var tags []string
 var articles []Article
+
+var secret = []byte("secret")
+
+func GenerateJWTToken(username string) (string, error) {
+	// Create the Claims
+	token := jwt.New(jwt.SigningMethodHS256)
+	claims := token.Claims.(jwt.MapClaims)
+
+	claims["username"] = username
+	claims["authorized"] = true
+	claims["exp"] = time.Now().Add(time.Hour * 24).Unix()
+
+	tokenString, err := token.SignedString(secret)
+
+	if err != nil {
+		fmt.Errorf("JWT token generation failed: %s", err.Error())
+		return "", err
+	}
+	return tokenString, nil
+}
 
 func getProfile(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
