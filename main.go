@@ -26,17 +26,17 @@ type Profile struct {
 }
 
 type Article struct {
-	Title          string    `json:"title"`
-	Description    string    `json:"description"`
-	Body           string    `json:"body"`
-	TagList        []string  `json:"tagList"`
-	Comments       []Comment `json:"comments"`
-	Slug           string    `json:"slug"`
-	CreatedAt      string    `json:"createdAt"`
-	UpdatedAt      string    `json:"updatedAt"`
-	Favorited      bool      `json:"favorited"`
-	FavoritesCount int       `json:"favoritesCount"`
-	Author         *Profile  `json:"author"`
+	Title          string   `json:"title"`
+	Description    string   `json:"description"`
+	Body           string   `json:"body"`
+	TagList        []string `json:"tagList"`
+	Comments       []Comment
+	Slug           string   `json:"slug"`
+	CreatedAt      string   `json:"createdAt"`
+	UpdatedAt      string   `json:"updatedAt"`
+	Favorited      bool     `json:"favorited"`
+	FavoritesCount int      `json:"favoritesCount"`
+	Author         *Profile `json:"author"`
 }
 
 type Comment struct {
@@ -192,9 +192,7 @@ func login(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func main() {
-	r := mux.NewRouter()
-
+func initDummyData() {
 	profiles = append(profiles, Profile{Username: "berke", Bio: "I am a student.", Image: "", Following: false})
 	profiles = append(profiles, Profile{Username: "keskul", Bio: "I am a cat.", Image: "", Following: false})
 
@@ -206,14 +204,25 @@ func main() {
 
 	tags = append(tags, "dragons")
 	tags = append(tags, "training")
+}
 
+func initRoutes(r *mux.Router) {
+	// GET
 	r.HandleFunc("/api/profiles/{username}", getProfile).Methods("GET")
 	r.HandleFunc("/api/articles", getArticles).Methods("GET")
 	r.HandleFunc("/api/articles/{slug}", getArticle).Methods("GET")
 	r.HandleFunc("/api/articles/{slug}/comments", getComments).Methods("GET")
 	r.HandleFunc("/api/tags", getTags).Methods("GET")
 
+	// POST
 	r.HandleFunc("/api/user/login", login).Methods("POST")
+}
+
+func main() {
+	r := mux.NewRouter()
+
+	initDummyData()
+	initRoutes(r)
 
 	fmt.Println("Starting server at port 8000")
 	log.Fatal(http.ListenAndServe(":8000", r))
