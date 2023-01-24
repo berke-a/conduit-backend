@@ -64,7 +64,9 @@ func getProfile(w http.ResponseWriter, r *http.Request) {
 
 	for _, profile := range profiles {
 		if profile.Username == params["username"] {
-			json.NewEncoder(w).Encode(profile)
+			if json.NewEncoder(w).Encode(profile) != nil {
+				log.Fatal("Error at encoding profile")
+			}
 			return
 		}
 	}
@@ -83,6 +85,8 @@ func getArticles(w http.ResponseWriter, r *http.Request) {
 	queryLimit := queries.Get("limit")
 	queryOffset := queries.Get("offset")
 
+	encoder := json.NewEncoder(w)
+
 	if queryLimit != "" {
 		limit, _ = strconv.Atoi(queryLimit)
 	}
@@ -95,7 +99,7 @@ func getArticles(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if tag != "" {
-		newArticles := []Article{}
+		var newArticles []Article
 
 		for _, article := range articles {
 			for _, t := range article.TagList {
@@ -104,35 +108,43 @@ func getArticles(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
-		json.NewEncoder(w).Encode(newArticles[offset : offset+limit])
+		if encoder.Encode(newArticles[offset:offset+limit]) != nil {
+			log.Fatal("Error at encoding articles with tag filter")
+		}
 		return
 	}
 
 	if author != "" {
-		newArticles := []Article{}
+		var newArticles []Article
 
 		for _, article := range articles {
 			if article.Author.Username == author {
 				newArticles = append(newArticles, article)
 			}
 		}
-		json.NewEncoder(w).Encode(newArticles[offset : offset+limit])
+		if encoder.Encode(newArticles[offset:offset+limit]) != nil {
+			log.Fatal("Error at encoding articles with author filter")
+		}
 		return
 	}
 
 	if favorited != "" {
-		newArticles := []Article{}
+		var newArticles []Article
 
 		for _, article := range articles {
 			if article.Favorited {
 				newArticles = append(newArticles, article)
 			}
 		}
-		json.NewEncoder(w).Encode(newArticles[offset : offset+limit])
+		if encoder.Encode(newArticles[offset:offset+limit]) != nil {
+			log.Fatal("Error at encoding articles with favorited filter")
+		}
 		return
 	}
 
-	json.NewEncoder(w).Encode(articles[offset : offset+limit])
+	if encoder.Encode(articles[offset:offset+limit]) != nil {
+		log.Fatal("Error at encoding articles")
+	}
 }
 
 func getArticle(w http.ResponseWriter, r *http.Request) {
@@ -141,7 +153,9 @@ func getArticle(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	for _, article := range articles {
 		if article.Slug == params["slug"] {
-			json.NewEncoder(w).Encode(article)
+			if json.NewEncoder(w).Encode(article) != nil {
+				log.Fatal("Error at encoding single article")
+			}
 			return
 		}
 	}
@@ -149,7 +163,9 @@ func getArticle(w http.ResponseWriter, r *http.Request) {
 
 func getTags(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(tags)
+	if json.NewEncoder(w).Encode(tags) != nil {
+		log.Fatal("Error at encoding tags")
+	}
 }
 
 func getComments(w http.ResponseWriter, r *http.Request) {
@@ -164,7 +180,9 @@ func getComments(w http.ResponseWriter, r *http.Request) {
 
 			coms.Comments = article.Comments
 
-			json.NewEncoder(w).Encode(coms)
+			if json.NewEncoder(w).Encode(coms) != nil {
+				log.Fatal("Error at encoding comments")
+			}
 
 		}
 	}
