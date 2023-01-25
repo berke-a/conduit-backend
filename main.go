@@ -21,7 +21,7 @@ type User struct {
 	Image    string `json:"image"`
 }
 
-type LoginRequest struct {
+type UserWrapper struct {
 	User User `json:"user"`
 }
 
@@ -64,6 +64,8 @@ var comments []Comment
 var tags []string
 var articles []Article
 var users []User
+
+var currentUser UserWrapper
 
 var secretKey = []byte("secretKey")
 
@@ -232,9 +234,16 @@ func getComments(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func getCurrentUser(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if json.NewEncoder(w).Encode(currentUser) != nil {
+		log.Fatal("Error at encoding current user")
+	}
+}
+
 func login(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	var body LoginRequest
+	var body UserWrapper
 	json.NewDecoder(r.Body).Decode(&body)
 	e := json.NewEncoder(w)
 	for _, user := range users {
@@ -245,15 +254,16 @@ func login(w http.ResponseWriter, r *http.Request) {
 					e.Encode("Error at generating token")
 					return
 				}
-				var wUser User
-				wUser.Email = user.Email
-				wUser.Token = tokenString
-				wUser.Username = user.Username
-				wUser.Bio = user.Bio
-				wUser.Image = user.Image
-				if json.NewEncoder(w).Encode(wUser) != nil {
+				var responseUser UserWrapper
+				responseUser.User.Email = user.Email
+				responseUser.User.Token = tokenString
+				responseUser.User.Username = user.Username
+				responseUser.User.Bio = user.Bio
+				responseUser.User.Image = user.Image
+				if json.NewEncoder(w).Encode(responseUser) != nil {
 					e.Encode("Error at encoding login response")
 				}
+				currentUser = responseUser
 				return
 			}
 			e.Encode("Invalid password")
@@ -261,6 +271,38 @@ func login(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	e.Encode("Invalid email")
+}
+
+func createUser(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	var body UserWrapper
+	json.NewDecoder(r.Body).Decode(&body)
+	e := json.NewEncoder(w)
+	for _, user := range users {
+		if body.User.Username == user.Username {
+			e.Encode("Username already exists")
+			return
+		}
+		if body.User.Email == user.Email {
+			e.Encode("Email already exists")
+			return
+		}
+	}
+	users = append(users, body.User)
+	e.Encode(body)
+}
+
+func updateUser(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	var body UserWrapper
+	json.NewDecoder(r.Body).Decode(&body)
+	e := json.NewEncoder(w)
+	fmt.Println(r.Header.Get("Authorization")[7:])
+	if isAuthorized(r.Header.Get("Authorization")[7:]) {
+		e.Encode("Authorized")
+		return
+	}
+	e.Encode("Unauthorized")
 }
 
 func initDummyData() {
@@ -276,15 +318,6 @@ func initDummyData() {
 	tags = append(tags, "dragons")
 	tags = append(tags, "training")
 
-	/*
-		Username string `json:"username"`
-		Email    string `json:"email"`
-		Token    string `json:"token"`
-		Password string `json:"password"`
-		Bio      string `json:"bio"`
-		Image    string `json:"image"`
-
-	*/
 	users = append(users, User{
 		Username: "keskul",
 		Email:    "keskul@home.com",
@@ -308,9 +341,14 @@ func initRoutes(r *mux.Router) {
 	r.HandleFunc("/api/articles/{slug}", getArticle).Methods("GET")
 	r.HandleFunc("/api/articles/{slug}/comments", getComments).Methods("GET")
 	r.HandleFunc("/api/tags", getTags).Methods("GET")
+	r.HandleFunc("/api/user", getCurrentUser).Methods("GET")
 
 	// POST
 	r.HandleFunc("/api/users/login", login).Methods("POST")
+	r.HandleFunc("/api/users", createUser).Methods("POST")
+
+	//PUT
+	r.HandleFunc("/api/user", updateUser).Methods("PUT")
 }
 
 func main() {
