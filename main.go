@@ -7,6 +7,7 @@ import (
 	"github.com/gorilla/mux"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 )
@@ -18,6 +19,10 @@ type User struct {
 	Password string `json:"password"`
 	Bio      string `json:"bio"`
 	Image    string `json:"image"`
+}
+
+type LoginRequest struct {
+	User User `json:"user"`
 }
 
 type Profile struct {
@@ -55,12 +60,12 @@ type MultipleComments struct {
 }
 
 var profiles []Profile
-
 var comments []Comment
 var tags []string
 var articles []Article
+var users []User
 
-var secret = []byte("secret")
+var secretKey = []byte("secretKey")
 
 func GenerateJWTToken(username string) (string, error) {
 	// Create the Claims
@@ -71,13 +76,30 @@ func GenerateJWTToken(username string) (string, error) {
 	claims["authorized"] = true
 	claims["exp"] = time.Now().Add(time.Hour * 24).Unix()
 
-	tokenString, err := token.SignedString(secret)
+	tokenString, err := token.SignedString(secretKey)
 
 	if err != nil {
 		fmt.Errorf("JWT token generation failed: %s", err.Error())
 		return "", err
 	}
 	return tokenString, nil
+}
+
+func isAuthorized(tokenString string) bool {
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("Authentication error")
+		}
+		return secretKey, nil
+	})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error at parsing token: %v", err.Error())
+		return false
+	}
+	if token.Valid {
+		return true
+	}
+	return false
 }
 
 func getProfile(w http.ResponseWriter, r *http.Request) {
@@ -211,7 +233,34 @@ func getComments(w http.ResponseWriter, r *http.Request) {
 }
 
 func login(w http.ResponseWriter, r *http.Request) {
-
+	w.Header().Set("Content-Type", "application/json")
+	var body LoginRequest
+	json.NewDecoder(r.Body).Decode(&body)
+	e := json.NewEncoder(w)
+	for _, user := range users {
+		if body.User.Email == user.Email {
+			if body.User.Password == user.Password {
+				var tokenString, err = GenerateJWTToken(user.Username)
+				if err != nil {
+					e.Encode("Error at generating token")
+					return
+				}
+				var wUser User
+				wUser.Email = user.Email
+				wUser.Token = tokenString
+				wUser.Username = user.Username
+				wUser.Bio = user.Bio
+				wUser.Image = user.Image
+				if json.NewEncoder(w).Encode(wUser) != nil {
+					e.Encode("Error at encoding login response")
+				}
+				return
+			}
+			e.Encode("Invalid password")
+			return
+		}
+	}
+	e.Encode("Invalid email")
 }
 
 func initDummyData() {
@@ -226,6 +275,30 @@ func initDummyData() {
 
 	tags = append(tags, "dragons")
 	tags = append(tags, "training")
+
+	/*
+		Username string `json:"username"`
+		Email    string `json:"email"`
+		Token    string `json:"token"`
+		Password string `json:"password"`
+		Bio      string `json:"bio"`
+		Image    string `json:"image"`
+
+	*/
+	users = append(users, User{
+		Username: "keskul",
+		Email:    "keskul@home.com",
+		Password: "123456",
+		Bio:      "I am a cat.",
+		Image:    "",
+	})
+	users = append(users, User{
+		Username: "berke",
+		Email:    "berke.ahlatci@gmail.com",
+		Password: "654321",
+		Bio:      "I am a student.",
+		Image:    "",
+	})
 }
 
 func initRoutes(r *mux.Router) {
@@ -237,7 +310,7 @@ func initRoutes(r *mux.Router) {
 	r.HandleFunc("/api/tags", getTags).Methods("GET")
 
 	// POST
-	r.HandleFunc("/api/user/login", login).Methods("POST")
+	r.HandleFunc("/api/users/login", login).Methods("POST")
 }
 
 func main() {
