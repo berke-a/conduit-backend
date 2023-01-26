@@ -299,7 +299,21 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	e := json.NewEncoder(w)
 	fmt.Println(r.Header.Get("Authorization")[7:])
 	if isAuthorized(r.Header.Get("Authorization")[7:]) {
-		e.Encode("Authorized")
+		if body.User.Username != "" {
+			currentUser.User.Username = body.User.Username
+		}
+		if body.User.Email != "" {
+			currentUser.User.Email = body.User.Email
+		}
+		if body.User.Bio != "" {
+			currentUser.User.Bio = body.User.Bio
+		}
+		if body.User.Image != "" {
+			currentUser.User.Image = body.User.Image
+		}
+		if body.User.Password != "" {
+			currentUser.User.Password = body.User.Password
+		}
 		return
 	}
 	e.Encode("Unauthorized")
