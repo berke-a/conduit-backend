@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/gorilla/mux"
@@ -90,16 +91,28 @@ func GenerateJWTToken(username string) (string, error) {
 func isAuthorized(tokenString string) bool {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("Authentication error")
+			return nil, fmt.Errorf("authentication error")
 		}
 		return secretKey, nil
 	})
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error at parsing token: %v", err.Error())
+		_, err := fmt.Fprintf(os.Stderr, "Error at parsing token: %v", err.Error())
+		if err != nil {
+			return false
+		}
 		return false
 	}
 	if token.Valid {
 		return true
+	}
+	return false
+}
+
+func isContains(s []string, e string) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
 	}
 	return false
 }
@@ -111,10 +124,13 @@ func getProfile(w http.ResponseWriter, r *http.Request) {
 	for _, profile := range profiles {
 		if profile.Username == params["username"] {
 			if json.NewEncoder(w).Encode(profile) != nil {
-				log.Fatal("Error at encoding profile")
+				panic("Error at encoding profile")
 			}
 			return
 		}
+	}
+	if json.NewEncoder(w).Encode(errors.New("Profile with {username:\""+params["username"]+"\"} not exist")) != nil {
+		panic("Error at encoding profile error")
 	}
 }
 
@@ -148,14 +164,13 @@ func getArticles(w http.ResponseWriter, r *http.Request) {
 		var newArticles []Article
 
 		for _, article := range articles {
-			for _, t := range article.TagList {
-				if t == tag {
-					newArticles = append(newArticles, article)
-				}
+			if isContains(article.TagList, tag) {
+				newArticles = append(newArticles, article)
 			}
 		}
+
 		if encoder.Encode(newArticles[offset:offset+limit]) != nil {
-			log.Fatal("Error at encoding articles with tag filter")
+			panic("Error at encoding articles with tag query")
 		}
 		return
 	}
@@ -169,7 +184,7 @@ func getArticles(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if encoder.Encode(newArticles[offset:offset+limit]) != nil {
-			log.Fatal("Error at encoding articles with author filter")
+			panic("Error at encoding articles with author query")
 		}
 		return
 	}
@@ -182,15 +197,18 @@ func getArticles(w http.ResponseWriter, r *http.Request) {
 				newArticles = append(newArticles, article)
 			}
 		}
+
 		if encoder.Encode(newArticles[offset:offset+limit]) != nil {
-			log.Fatal("Error at encoding articles with favorited filter")
+			panic("Error at encoding articles with favorited query")
 		}
+
 		return
 	}
 
 	if encoder.Encode(articles[offset:offset+limit]) != nil {
-		log.Fatal("Error at encoding articles")
+		panic("Error at encoding articles without query")
 	}
+
 }
 
 func getArticle(w http.ResponseWriter, r *http.Request) {
@@ -200,17 +218,22 @@ func getArticle(w http.ResponseWriter, r *http.Request) {
 	for _, article := range articles {
 		if article.Slug == params["slug"] {
 			if json.NewEncoder(w).Encode(article) != nil {
-				log.Fatal("Error at encoding single article")
+				panic("Error at encoding article")
 			}
 			return
 		}
 	}
+
+	if json.NewEncoder(w).Encode(errors.New("Article with {slug:\""+params["slug"]+"\"} does not exist")) != nil {
+		panic("Error at encoding single article")
+	}
 }
 
-func getTags(w http.ResponseWriter, r *http.Request) {
+func getTags(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+
 	if json.NewEncoder(w).Encode(tags) != nil {
-		log.Fatal("Error at encoding tags")
+		panic("Error at encoding tags")
 	}
 }
 
@@ -227,33 +250,46 @@ func getComments(w http.ResponseWriter, r *http.Request) {
 			coms.Comments = article.Comments
 
 			if json.NewEncoder(w).Encode(coms) != nil {
-				log.Fatal("Error at encoding comments")
+				panic("Error at encoding comments")
 			}
 
 		}
 	}
 }
 
-func getCurrentUser(w http.ResponseWriter, r *http.Request) {
+func getCurrentUser(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	if json.NewEncoder(w).Encode(currentUser) != nil {
-		log.Fatal("Error at encoding current user")
+		panic("Error at encoding current user")
 	}
 }
 
 func login(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+
 	var body UserWrapper
-	json.NewDecoder(r.Body).Decode(&body)
-	e := json.NewEncoder(w)
+
+	if json.NewDecoder(r.Body).Decode(&body) != nil {
+		panic("Error at decoding login request")
+	}
+	encoder := json.NewEncoder(w)
+
 	for _, user := range users {
+
 		if body.User.Email == user.Email {
+
 			if body.User.Password == user.Password {
+
+				// Token creation
 				var tokenString, err = GenerateJWTToken(user.Username)
 				if err != nil {
-					e.Encode("Error at generating token")
+					if encoder.Encode(errors.New("token generation failed")) != nil {
+						panic("Error at encoding token error")
+					}
 					return
 				}
+
+				// Set response body
 				var responseUser UserWrapper
 				responseUser.User.Email = user.Email
 				responseUser.User.Token = tokenString
@@ -261,44 +297,67 @@ func login(w http.ResponseWriter, r *http.Request) {
 				responseUser.User.Bio = user.Bio
 				responseUser.User.Image = user.Image
 				if json.NewEncoder(w).Encode(responseUser) != nil {
-					e.Encode("Error at encoding login response")
+					panic("Error at encoding login response")
 				}
+
+				// Update current user
 				currentUser = responseUser
 				return
 			}
-			e.Encode("Invalid password")
+			if encoder.Encode(errors.New("invalid password")) != nil {
+				panic("Error at encoding invalid password")
+			}
 			return
 		}
 	}
-	e.Encode("Invalid email")
+	if encoder.Encode(errors.New("invalid email")) != nil {
+		panic("Error at encoding invalid email")
+	}
 }
 
 func createUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+
 	var body UserWrapper
-	json.NewDecoder(r.Body).Decode(&body)
-	e := json.NewEncoder(w)
+	if json.NewDecoder(r.Body).Decode(&body) != nil {
+		panic("Error at decoding user creation request")
+	}
+	encoder := json.NewEncoder(w)
+
 	for _, user := range users {
+
 		if body.User.Username == user.Username {
-			e.Encode("Username already exists")
+			if encoder.Encode(errors.New("username already exists")) != nil {
+				panic("Error at encoding username already exists error")
+			}
 			return
 		}
 		if body.User.Email == user.Email {
-			e.Encode("Email already exists")
+			if encoder.Encode(errors.New("email already exists")) != nil {
+				panic("Error at encoding email already exists error")
+			}
 			return
 		}
+
 	}
+
 	users = append(users, body.User)
-	e.Encode(body)
+	if encoder.Encode(body) != nil {
+		panic("Error at encoding user creation response")
+	}
 }
 
 func updateUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+
 	var body UserWrapper
-	json.NewDecoder(r.Body).Decode(&body)
-	e := json.NewEncoder(w)
-	fmt.Println(r.Header.Get("Authorization")[7:])
+	if json.NewDecoder(r.Body).Decode(&body) != nil {
+		panic("Error at decoding user update request")
+	}
+	encoder := json.NewEncoder(w)
+
 	if isAuthorized(r.Header.Get("Authorization")[7:]) {
+
 		if body.User.Username != "" {
 			currentUser.User.Username = body.User.Username
 		}
@@ -314,9 +373,17 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		if body.User.Password != "" {
 			currentUser.User.Password = body.User.Password
 		}
+
+		if encoder.Encode(currentUser) != nil {
+			panic("Error at encoding user update response")
+		}
+
 		return
 	}
-	e.Encode("Unauthorized")
+
+	if encoder.Encode(errors.New("authorization failed")) != nil {
+		panic("Error at encoding authorization failed")
+	}
 }
 
 func initDummyData() {
