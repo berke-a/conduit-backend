@@ -133,7 +133,9 @@ func getProfile(w http.ResponseWriter, r *http.Request) {
 
 	if params["username"] == "" {
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(Error{Errors: ErrorBody{Body: []string{"username is required"}}})
+		if json.NewEncoder(w).Encode(Error{Errors: ErrorBody{Body: []string{"username is required"}}}) != nil {
+			panic("Error at encoding error at getProfile")
+		}
 		return
 	}
 
@@ -144,7 +146,9 @@ func getProfile(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	json.NewEncoder(w).Encode(tmpProfile)
+	if json.NewEncoder(w).Encode(tmpProfile) != nil {
+		panic("Error at encoding profile at getProfile")
+	}
 
 }
 
@@ -167,15 +171,15 @@ func getArticles(w http.ResponseWriter, r *http.Request) {
 	if queryLimit != "" {
 		limit, err = strconv.Atoi(queryLimit)
 		if err != nil {
-			panic("Error at converting limit query")
 			limit = 20
+			log.Println("Error at converting limit query")
 		}
 	}
 	if queryOffset != "" {
 		offset, err = strconv.Atoi(queryOffset)
 		if err != nil {
-			panic("Error at converting offset query")
 			offset = 0
+			log.Println("Error at converting offset query")
 		}
 	}
 

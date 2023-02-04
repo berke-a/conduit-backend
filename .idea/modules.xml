@@ -3,7 +3,6 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/conduit-backend.iml" filepath="$PROJECT_DIR$/.idea/conduit-backend.iml" />
-      <module fileurl="file://$PROJECT_DIR$/../otsimo-backend/.idea/otsimo-backend.iml" filepath="$PROJECT_DIR$/../otsimo-backend/.idea/otsimo-backend.iml" />
     </modules>
   </component>
 </project>
