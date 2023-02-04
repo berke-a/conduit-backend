@@ -60,6 +60,14 @@ type MultipleComments struct {
 	Comments []Comment `json:"comments"`
 }
 
+type Error struct {
+	Errors ErrorBody `json:"errors"`
+}
+
+type ErrorBody struct {
+	Body []string `json:"body"`
+}
+
 var profiles []Profile
 var comments []Comment
 var tags []string
@@ -121,17 +129,23 @@ func getProfile(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r)
 
+	var tmpProfile Profile
+
+	if params["username"] == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(Error{Errors: ErrorBody{Body: []string{"username is required"}}})
+		return
+	}
+
 	for _, profile := range profiles {
 		if profile.Username == params["username"] {
-			if json.NewEncoder(w).Encode(profile) != nil {
-				panic("Error at encoding profile")
-			}
-			return
+			tmpProfile = profile
+			break
 		}
 	}
-	if json.NewEncoder(w).Encode(errors.New("Profile with {username:\""+params["username"]+"\"} not exist")) != nil {
-		panic("Error at encoding profile error")
-	}
+
+	json.NewEncoder(w).Encode(tmpProfile)
+
 }
 
 func getArticles(w http.ResponseWriter, r *http.Request) {
@@ -139,6 +153,7 @@ func getArticles(w http.ResponseWriter, r *http.Request) {
 
 	limit := 20
 	offset := 0
+	var err error
 
 	queries := r.URL.Query()
 	tag := queries.Get("tag")
@@ -150,10 +165,18 @@ func getArticles(w http.ResponseWriter, r *http.Request) {
 	encoder := json.NewEncoder(w)
 
 	if queryLimit != "" {
-		limit, _ = strconv.Atoi(queryLimit)
+		limit, err = strconv.Atoi(queryLimit)
+		if err != nil {
+			panic("Error at converting limit query")
+			limit = 20
+		}
 	}
 	if queryOffset != "" {
-		offset, _ = strconv.Atoi(queryOffset)
+		offset, err = strconv.Atoi(queryOffset)
+		if err != nil {
+			panic("Error at converting offset query")
+			offset = 0
+		}
 	}
 
 	if offset+limit >= len(articles) {
@@ -215,18 +238,29 @@ func getArticle(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	params := mux.Vars(r)
+
+	if params["slug"] == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		if json.NewEncoder(w).Encode(Error{Errors: ErrorBody{Body: []string{"article slug is required"}}}) != nil {
+			panic("Error at encoding error at getArticle")
+		}
+		return
+	}
+
+	var tmpArticle Article
+
 	for _, article := range articles {
 		if article.Slug == params["slug"] {
-			if json.NewEncoder(w).Encode(article) != nil {
-				panic("Error at encoding article")
-			}
-			return
+			tmpArticle = article
+			break
 		}
 	}
 
-	if json.NewEncoder(w).Encode(errors.New("Article with {slug:\""+params["slug"]+"\"} does not exist")) != nil {
-		panic("Error at encoding single article")
+	if json.NewEncoder(w).Encode(tmpArticle) != nil {
+		panic("Error at encoding article")
 	}
+	return
+
 }
 
 func getTags(w http.ResponseWriter, _ *http.Request) {
@@ -242,19 +276,29 @@ func getComments(w http.ResponseWriter, r *http.Request) {
 
 	params := mux.Vars(r)
 
+	if params["slug"] == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		if json.NewEncoder(w).Encode(Error{Errors: ErrorBody{Body: []string{"article slug is required"}}}) != nil {
+			panic("Error at encoding error at getComments")
+		}
+		return
+	}
+
+	var coms MultipleComments
+
 	for _, article := range articles {
 		if article.Slug == params["slug"] {
 
-			var coms MultipleComments
-
 			coms.Comments = article.Comments
 
-			if json.NewEncoder(w).Encode(coms) != nil {
-				panic("Error at encoding comments")
-			}
-
+			break
 		}
 	}
+
+	if json.NewEncoder(w).Encode(coms) != nil {
+		panic("Error at encoding comments")
+	}
+
 }
 
 func getCurrentUser(w http.ResponseWriter, _ *http.Request) {
@@ -273,6 +317,22 @@ func login(w http.ResponseWriter, r *http.Request) {
 		panic("Error at decoding login request")
 	}
 	encoder := json.NewEncoder(w)
+
+	if body.User.Email == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		if encoder.Encode(Error{Errors: ErrorBody{Body: []string{"email is required"}}}) != nil {
+			panic("Error at encoding error at login")
+		}
+		return
+	}
+
+	if body.User.Password == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		if encoder.Encode(Error{Errors: ErrorBody{Body: []string{"password is required"}}}) != nil {
+			panic("Error at encoding error at login")
+		}
+		return
+	}
 
 	for _, user := range users {
 
@@ -324,6 +384,30 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 	}
 	encoder := json.NewEncoder(w)
 
+	if body.User.Username == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		if encoder.Encode(Error{Errors: ErrorBody{Body: []string{"username is required"}}}) != nil {
+			panic("Error at encoding error at createUser")
+		}
+		return
+	}
+
+	if body.User.Email == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		if encoder.Encode(Error{Errors: ErrorBody{Body: []string{"email is required"}}}) != nil {
+			panic("Error at encoding error at createUser")
+		}
+		return
+	}
+
+	if body.User.Password == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		if encoder.Encode(Error{Errors: ErrorBody{Body: []string{"password is required"}}}) != nil {
+			panic("Error at encoding error at createUser")
+		}
+		return
+	}
+
 	for _, user := range users {
 
 		if body.User.Username == user.Username {
@@ -355,6 +439,14 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		panic("Error at decoding user update request")
 	}
 	encoder := json.NewEncoder(w)
+
+	if body.User.Username == "" && body.User.Email == "" && body.User.Bio == "" && body.User.Image == "" && body.User.Password == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		if encoder.Encode(Error{Errors: ErrorBody{Body: []string{"at least one field is required"}}}) != nil {
+			panic("Error at encoding error at updateUser")
+		}
+		return
+	}
 
 	if isAuthorized(r.Header.Get("Authorization")[7:]) {
 
