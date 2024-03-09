@@ -15,7 +15,6 @@ func newReverseProxy(target string) *httputil.ReverseProxy {
 		req.Header.Add("X-Origin-Host", url.Host)
 		req.URL.Scheme = url.Scheme
 		req.URL.Host = url.Host
-		req.URL.Path = req.URL.Path
 	}
 
 	return proxy
