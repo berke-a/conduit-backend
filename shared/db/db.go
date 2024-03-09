@@ -1,9 +1,10 @@
 package db
 
 import (
-	"conduit-backend/shared/config"
 	"context"
 	"fmt"
+
+	"github.com/berke-a/conduit-backend/shared/config"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
