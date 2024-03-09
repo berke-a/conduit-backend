@@ -1,0 +1,1 @@
+- Build docker images and run the project: `docker-compose up --build`
