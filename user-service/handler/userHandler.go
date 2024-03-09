@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"user-service/model"
 
+	"conduit-backend/shared/db"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -14,6 +16,8 @@ var users = map[string]model.User{
 
 // GetUserByID retrieves a user by ID
 func GetUserByID(c *gin.Context) {
+	pool := db.GetConn()
+
 	id := c.Param("id")
 	user, exists := users[id]
 	if !exists {

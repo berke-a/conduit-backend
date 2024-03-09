@@ -1,4 +1,4 @@
-module shared
+module conduit-backend
 
 go 1.22.0
 

@@ -1,6 +1,7 @@
-package shared
+package db
 
 import (
+	"conduit-backend/shared/config"
 	"context"
 	"fmt"
 
@@ -10,7 +11,7 @@ import (
 var pool *pgxpool.Pool
 
 func init() {
-	cfg, err := LoadConfig("config.yaml") // TODO: Fix config file path
+	cfg, err := config.LoadConfig("config.yaml") // TODO: Fix config file path
 	if err != nil {
 		panic(fmt.Errorf("error loading config: %w", err))
 	}
