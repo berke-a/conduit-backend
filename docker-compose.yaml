@@ -1,0 +1,11 @@
+services:
+  api-gateway:
+    build: ./api-gateway
+    ports:
+      - "8080:8080"
+    depends_on:
+      - user-service
+
+  user-service:
+    build: ./user-service
+    # No need to expose user-service to the host unless it's also accessed directly.

@@ -1,0 +1,5 @@
+POSTGRES_HOST: localhost # This is correct if your server is running locally
+POSTGRES_PORT: 5433 # Change this to match the port shown in your PostgreSQL instance settings
+POSTGRES_USER: berke # Replace this with the username for your database if different
+POSTGRES_PASSWORD: bekoko78 # Replace [password] with the actual password for your database
+POSTGRES_DBNAME: conduit_db # Replace with your database name
