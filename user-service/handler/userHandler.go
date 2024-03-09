@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"user-service/model"
 
-	"conduit-backend/shared/db"
+	"github.com/berke-a/conduit-backend/shared/db"
 
 	"github.com/gin-gonic/gin"
 )

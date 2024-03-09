@@ -1,4 +1,4 @@
-module conduit-backend
+module github.com/berke-a/conduit-backend
 
 go 1.22.0
 
